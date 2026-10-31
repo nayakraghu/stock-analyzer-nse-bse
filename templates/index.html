@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Analyzer by Raghavendra</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500;700&family=Public+Sans:wght@400;600&display=swap">
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#14213d;--mute:#5b6678;--line:#d5dce6;--good:#17803d;--bad:#b42318;--warn:#b7791f;--accent:#1d4ed8}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1624;--card:#17213a;--ink:#e8edf6;--mute:#9aa7bd;--line:#2a3654;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;--accent:#7aa2ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Public Sans",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:32px 16px 64px}
+h1,h2{font-family:Newsreader,Georgia,serif;margin:0}
+h1{font-size:2.2rem}h2{font-size:1.35rem;margin-bottom:10px}
+.sub{color:var(--mute);margin:4px 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:16px}
+form{display:flex;gap:8px;flex-wrap:wrap}
+input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+input.grow{flex:1 1 260px}
+button{font:inherit;font-weight:600;padding:10px 18px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+button:focus-visible,input:focus-visible,.chip:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{background:transparent;color:var(--ink);border:1px solid var(--line);padding:6px 12px;font-weight:400}
+.chip.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat b{display:block;font-size:1.25rem}.stat span{color:var(--mute);font-size:.85rem}
+.price{font-family:Newsreader,serif;font-size:2.4rem;font-weight:700}
+.meter{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));position:relative;margin:12px 0 6px}
+.meter i{position:absolute;top:-5px;width:4px;height:22px;background:var(--ink);border-radius:2px}
+table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}th{color:var(--mute);font-weight:600}
+.good{color:var(--good)}.bad{color:var(--bad)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+ul{margin:0;padding-left:20px}li{margin:6px 0}
+.action{font-family:Newsreader,serif;font-size:1.8rem;font-weight:700}
+.note{color:var(--mute);font-size:.85rem;margin-top:24px}
+.err{color:var(--bad);margin-top:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>Stock Analyzer by Raghavendra</h1>
+<p class="sub">Search any NSE or BSE company for risk, pros and cons, and 6-month, 1-year and 5-year scenarios.</p>
+
+<div class="card">
+<form id="sf">
+<input class="grow" id="q" placeholder="Company name, e.g. Adani Power" aria-label="Company name" required>
+<button>Analyse</button>
+</form>
+<div class="chips" id="chips"></div>
+<div id="msg" class="err" role="alert"></div>
+</div>
+
+<div id="out"></div>
+
+<p class="note">Scenarios are statistical projections from past prices and volatility, not predictions. This tool does not provide investment advice; talk to a SEBI-registered adviser before acting.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const inr = n => "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 2});
+const pct = n => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let current = null;
+
+async function getJSON(url) {
+  const r = await fetch(url), d = await r.json();
+  if (!r.ok) throw new Error(d.error || "Request failed");
+  return d;
+}
+
+$("sf").addEventListener("submit", async e => {
+  e.preventDefault(); $("msg").textContent = ""; $("chips").innerHTML = ""; $("out").innerHTML = "";
+  try {
+    const list = await getJSON("/api/search?q=" + encodeURIComponent($("q").value));
+    if (!list.length) { $("msg").textContent = "No NSE or BSE match. Try the exchange ticker, e.g. ADANIPOWER."; return; }
+    const g = {};
+    list.forEach(m => { (g[m.name] = g[m.name] || {})[m.exchange] = m.symbol; });
+    const groups = Object.entries(g).slice(0, 6).map(([name, x]) => ({name, sym: x.NSE || x.BSE, alt: x.NSE ? (x.BSE || "") : (x.NSE || "")}));
+    $("chips").innerHTML = groups.map(m => `<button type="button" class="chip" data-s="${esc(m.sym)}" data-a="${esc(m.alt)}">${esc(m.name)}</button>`).join("");
+    document.querySelectorAll(".chip").forEach(c => c.onclick = () => load(c.dataset.s, "", c.dataset.a));
+    load(groups[0].sym, "", groups[0].alt);
+  } catch (err) { $("msg").textContent = err.message; }
+});
+
+async function load(sym, holding = "", alt = "") {
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c.dataset.s === sym));
+  $("msg").textContent = "Fetching data...";
+  try {
+    current = await getJSON("/api/analyze?symbol=" + encodeURIComponent(sym) + (alt ? "&alt=" + encodeURIComponent(alt) : "") + holding);
+    current.alt = alt;
+    $("msg").textContent = ""; render(current); loadPeers(sym); startLive(current);
+  } catch (err) { $("msg").textContent = err.message; }
+}
+
+let timer;
+const quotesHTML = qs => qs.map(q => `<div class="stat"><span>${q.exchange} · ${esc(q.symbol)}</span>
+  <div class="price">${inr(q.price)}</div><b class="${q.change >= 0 ? "good" : "bad"}">${pct(q.change_pct)} today</b></div>`).join("");
+
+function startLive(a) {
+  clearInterval(timer);
+  const syms = a.quotes.map(q => q.symbol).join(",");
+  const tick = async () => {
+    if (document.hidden || !syms || !$("quotes")) return;
+    try {
+      const d = await getJSON("/api/quote?symbols=" + encodeURIComponent(syms));
+      if (d.quotes.length) $("quotes").innerHTML = quotesHTML(d.quotes);
+      $("mk").textContent = (d.market_open ? "Market open." : "Market closed, showing the last traded price.") +
+        " Updated " + new Date().toLocaleTimeString() + ". Yahoo prices can lag by up to 15 minutes.";
+    } catch (e) {}
+  };
+  tick(); timer = setInterval(tick, 15000);
+}
+
+async function loadPeers(sym) {
+  try {
+    const d = await getJSON("/api/peers?symbol=" + encodeURIComponent(sym));
+    const el = $("peers"); if (!el || !current || current.symbol !== sym) return;
+    el.innerHTML = "<h2>Similar companies doing well</h2>" + (d.length ?
+      `<div style="overflow-x:auto"><table><tr><th>Company</th><th>Price</th><th>6 months</th><th>1 year</th><th>Trend</th></tr>` +
+      d.map(p => `<tr><td><a href="#" data-p="${esc(p.symbol)}">${esc(p.name)}</a></td><td>${inr(p.price)}</td>
+        <td class="${p.ret6m >= 0 ? "good" : "bad"}">${pct(p.ret6m)}</td><td class="${p.ret1y >= 0 ? "good" : "bad"}">${pct(p.ret1y)}</td>
+        <td>${p.doing_well ? "Doing well" : p.trend_up ? "Above 200-day" : "Below 200-day"}</td></tr>`).join("") +
+      `</table></div><p class="sub" style="margin-bottom:0">Ranked on 6-month and 1-year returns, trend and volatility. Select one to analyse it.</p>`
+      : '<p class="sub">No comparable companies found for this sector.</p>');
+    el.querySelectorAll("a").forEach(x => x.onclick = e => { e.preventDefault(); $("q").value = x.textContent; load(x.dataset.p); });
+  } catch (e) { if ($("peers")) $("peers").innerHTML = "<h2>Similar companies doing well</h2><p class='sub'>Could not load peers.</p>"; }
+}
+
+function render(a) {
+  const rows = Object.entries(a.scenarios).map(([k, s]) => {
+    const c = v => `<span class="${v >= a.price ? "good" : "bad"}">${inr(v)} (${pct((v / a.price - 1) * 100)})</span>`;
+    return `<tr><td>${k}</td><td>${c(s.best)}</td><td>${c(s.base)}</td><td>${c(s.worst)}</td><td>${s.p_loss.toFixed(0)}%</td></tr>`;
+  }).join("");
+  const li = arr => arr.length ? arr.map(x => `<li>${esc(x)}</li>`).join("") : "<li>Nothing notable found.</li>";
+  const adv = a.advice ? `<div class="card"><h2>Your position</h2>
+    <div class="action">${esc(a.advice.action)}</div><p>${esc(a.advice.why)}</p>
+    <ul>${a.advice.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <p class="sub">Position value: ${inr(a.advice.value)}</p></div>` : "";
+  $("out").innerHTML = `
+  <div class="card"><h2>${esc(a.name)} <small style="font-weight:400;color:var(--mute)">${esc(a.symbol)}${a.sector ? " · " + esc(a.sector) : ""}</small></h2>
+    <div class="grid" id="quotes">${quotesHTML(a.quotes)}</div>
+    <p class="sub" id="mk"></p>
+    <div class="grid" style="margin-top:12px">
+      <div class="stat"><b>${inr(a.lo52)} – ${inr(a.hi52)}</b><span>52-week range</span></div>
+      <div class="stat"><b>${a.pe ? a.pe.toFixed(1) : "n/a"}</b><span>P/E</span></div>
+      <div class="stat"><b>${a.rsi.toFixed(0)}</b><span>RSI (14)</span></div>
+      <div class="stat"><b>${inr(a.ma200)}</b><span>200-day average</span></div>
+    </div></div>
+  <div class="card"><h2>Risk: ${esc(a.risk_label)} (${a.risk_score.toFixed(0)}%)</h2>
+    <div class="meter"><i style="left:calc(${a.risk_score}% - 2px)"></i></div>
+    <div class="grid" style="margin-top:16px">
+      <div class="stat"><b>${a.p_loss_1y.toFixed(0)}%</b><span>chance of a loss after 1 year</span></div>
+      <div class="stat"><b>−${a.var95.toFixed(0)}%</b><span>1-year worst case (95% confidence)</span></div>
+      <div class="stat"><b>${a.vol.toFixed(0)}%</b><span>annual volatility</span></div>
+      <div class="stat"><b>${a.max_drawdown.toFixed(0)}%</b><span>biggest fall in 5 years</span></div>
+      <div class="stat"><b>${a.beta != null ? a.beta.toFixed(2) : "n/a"}</b><span>beta vs Nifty 50</span></div>
+    </div></div>
+  <div class="card"><h2>Scenarios</h2>
+    <div style="overflow-x:auto"><table><tr><th>Horizon</th><th>Good case</th><th>Likely</th><th>Bad case</th><th>Loss chance</th></tr>${rows}</table></div>
+    <p class="sub" style="margin-bottom:0">Good and bad cases are the 95th and 5th percentile outcomes.</p></div>
+  <div class="two" style="margin-top:16px">
+    <div class="card" style="margin:0"><h2>Pros</h2><ul>${li(a.pros)}</ul></div>
+    <div class="card" style="margin:0"><h2>Cons</h2><ul>${li(a.cons)}</ul></div></div>
+  <div class="card" id="peers"><h2>Similar companies doing well</h2><p class="sub">Loading...</p></div>
+  <div class="card"><h2>Do you own this stock?</h2>
+    <form id="hf">
+      <input type="number" id="sh" min="1" step="any" placeholder="Shares held" aria-label="Shares held" required>
+      <input type="number" id="av" min="0" step="any" placeholder="Your average buy price" aria-label="Average buy price">
+      <input type="number" id="pf" min="0" step="any" placeholder="Total portfolio value (optional)" aria-label="Total portfolio value" class="grow">
+      <button>Get suggestion</button></form></div>
+  ${adv}`;
+  $("hf").addEventListener("submit", e => {
+    e.preventDefault();
+    const q = (k, v) => v ? `&${k}=${encodeURIComponent(v)}` : "";
+    load(a.symbol, q("shares", $("sh").value) + q("avg", $("av").value) + q("portfolio", $("pf").value), a.alt || "");
+  });
+}
+</script>
+</body>
+</html>

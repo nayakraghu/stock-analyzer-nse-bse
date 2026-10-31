@@ -1,0 +1,159 @@
+STOCK ANALYZER BY RAGHAVENDRA
+Analyse NSE and BSE stocks: risk score, scenarios, pros and cons, similar
+companies, and hold/sell suggestions for your own holdings.
+
+======================================================================
+WHAT IT DOES
+======================================================================
+- Search any NSE or BSE company by name (for example: Adani Power).
+- Shows NSE and BSE prices side by side, refreshed every 15 seconds.
+- Risk score out of 100, chance of a loss after 1 year, and the 1-year
+  worst case.
+- Good, likely and bad scenarios for 6 months, 1 year and 5 years.
+- Pros and cons worked out from price trend, returns, debt, margins,
+  growth, P/E, volatility and RSI.
+- Similar companies in the same sector that are doing well.
+- Enter your shares, buy price and portfolio value to get a suggestion:
+  Hold, Wait, Sell, Sell part, or Balance it off.
+
+IMPORTANT: This is an educational tool. Scenarios are statistical
+projections from past prices, not predictions. It is not investment
+advice. Prices come from Yahoo Finance and can be delayed by up to
+15 minutes. Talk to a SEBI-registered adviser before investing.
+
+======================================================================
+WHAT YOU NEED
+======================================================================
+- A computer with internet access (data is fetched live).
+- Python 3.12 or 3.13 (recommended). Newer versions may work, but some
+  libraries can take months to support a brand-new Python release.
+- About 5 minutes.
+
+======================================================================
+FOLDER LAYOUT (must look exactly like this)
+======================================================================
+stock-analyzer/
+    app.py
+    requirements.txt
+    HOW_TO_USE.txt
+    templates/
+        index.html          <- must be inside a folder named "templates"
+
+======================================================================
+STEP-BY-STEP: WINDOWS
+======================================================================
+Step 1. Install Python
+   - Go to https://www.python.org/downloads/windows/
+   - Download Python 3.12 (Windows installer, 64-bit).
+   - Run it. On the first screen tick "Add python.exe to PATH", then
+     click Install Now.
+
+Step 2. Check Python works
+   - Open Command Prompt (press the Windows key, type cmd, press Enter).
+   - Run:   python --version
+   - You should see something like: Python 3.12.x
+   - If it says "Python was not found", try:   py --version
+     If that works, type "py" instead of "python" in the steps below
+     until Step 5.
+
+Step 3. Open the project folder
+   - If the folder is on another drive (for example D:), use /d:
+         cd /d "D:\path\to\stock-analyzer"
+   - Keep the quotes if the path has spaces.
+   - Run:   dir
+   - You should see app.py, requirements.txt and a templates folder.
+
+Step 4. Create a virtual environment
+         python -m venv venv
+
+Step 5. Activate it
+         venv\Scripts\activate
+   - You should see (venv) at the start of the line.
+
+Step 6. Install the packages
+         python -m pip install -U pip
+         pip install -r requirements.txt
+
+Step 7. Start the app
+         python app.py
+   - You should see: Running on http://127.0.0.1:5000
+   - Keep this window open while you use the site.
+
+Step 8. Open the site
+   - In your browser, go to:   http://127.0.0.1:5000
+
+Step 9. Stop the app
+   - Click the Command Prompt window and press Ctrl+C.
+
+To run it again later:
+         cd /d "D:\path\to\stock-analyzer"
+         venv\Scripts\activate
+         python app.py
+
+======================================================================
+STEP-BY-STEP: MAC / LINUX
+======================================================================
+         cd path/to/stock-analyzer
+         python3 -m venv venv
+         source venv/bin/activate
+         python -m pip install -U pip
+         pip install -r requirements.txt
+         python app.py
+   Then open http://127.0.0.1:5000 in your browser.
+
+======================================================================
+HOW TO USE THE SITE
+======================================================================
+1. Type a company name (for example: Adani Power) and click Analyse.
+   The first search can take 10 to 20 seconds.
+2. If several companies match, pick the right one from the buttons
+   under the search box.
+3. Read the sections: prices, risk, scenarios, pros and cons.
+4. Check "Similar companies doing well". Click a name to analyse it.
+5. To get a suggestion for a stock you own, fill in:
+   - Shares held (required)
+   - Your average buy price (optional, needed for profit/loss)
+   - Total portfolio value (optional, needed for concentration checks)
+   then click "Get suggestion".
+
+How the suggestion works (simple rules, adjust in app.py, advise()):
+   - Balance it off : the stock is more than 25% of your portfolio.
+   - Sell (or cut)  : high risk, downtrend and a loss of more than 15%.
+   - Sell part      : profit above 40% and the price looks overbought.
+   - Wait           : the trend is weak, so avoid adding more for now.
+   - Hold           : nothing above applies.
+
+======================================================================
+TROUBLESHOOTING
+======================================================================
+"Python was not found" (Windows)
+   Use "py" instead of "python", or reinstall Python and tick
+   "Add python.exe to PATH". Then open a NEW Command Prompt.
+
+"TemplateNotFound: index.html"
+   index.html must be inside a folder named exactly "templates" next
+   to app.py.
+
+"No NSE or BSE match"
+   Try the exchange ticker instead of the name (for example ADANIPOWER).
+
+Search or data errors
+   Yahoo Finance changes often. Run:   pip install -U yfinance
+   and start the app again. Check your internet connection.
+
+"Address already in use"
+   Another program is using port 5000. At the bottom of app.py change
+   app.run(debug=True) to app.run(debug=True, port=5001) and open
+   http://127.0.0.1:5001
+
+pip install fails with a long red error ("building wheel", "no matching
+distribution")
+   Your Python version is probably too new for the libraries. Install
+   Python 3.12 and create the environment with:
+         py -3.12 -m venv venv
+
+======================================================================
+CREDITS
+======================================================================
+Created by Raghavendra. Data: Yahoo Finance via the yfinance library.
+Built with Python, Flask and plain HTML/JavaScript.
